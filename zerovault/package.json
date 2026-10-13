@@ -1,0 +1,15 @@
+{
+  "name": "zerovault",
+  "version": "1.0.0",
+  "description": "Zero-knowledge, in-browser encryption for text and files (AES-256-GCM) with optional Google Drive storage.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "start": "npx --yes serve -l 8080 ."
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

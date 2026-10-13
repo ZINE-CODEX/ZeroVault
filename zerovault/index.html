@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ZeroVault: encrypt text and files in your browser</title>
+
+  <!--
+    Content Security Policy: tells the browser exactly which origins this page may
+    load code from or send data to. Even if a bug let an attacker inject a script,
+    it could not ship your data to some other server.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' https://accounts.google.com;
+    style-src 'self' https://accounts.google.com;
+    img-src 'self' data:;
+    connect-src 'self' https://www.googleapis.com https://accounts.google.com;
+    frame-src https://accounts.google.com;
+    base-uri 'none';
+    form-action 'none'">
+
+  <link rel="stylesheet" href="src/styles.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script type="module" src="src/ui/app.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="masthead">
+      <h1>ZeroVault</h1>
+      <p class="lede">Encrypt text and files with a password. It happens in this tab, so your data and your password never reach a server.</p>
+    </header>
+
+    <!-- One password, used by every tab -->
+    <section class="card" aria-labelledby="pw-title">
+      <h2 id="pw-title">Password</h2>
+      <div class="pw-row">
+        <input id="password" type="password" autocomplete="off" spellcheck="false"
+               placeholder="Type a long passphrase" aria-describedby="strength-label">
+        <button type="button" id="toggle-password" class="ghost" aria-pressed="false">Show</button>
+        <button type="button" id="generate" class="ghost">Generate</button>
+      </div>
+      <div class="meter" aria-hidden="true"><div id="strength-bar" class="meter-fill" data-score="0"></div></div>
+      <p id="strength-label" class="meter-label" aria-live="polite">Enter a password.</p>
+      <p class="warning">There is no recovery. If you lose this password, the encrypted data is gone for good.</p>
+    </section>
+
+    <nav class="tabs" role="tablist" aria-label="What do you want to encrypt?">
+      <button role="tab" id="tab-text"  data-tab="text"  aria-selected="true"  aria-controls="panel-text">Text</button>
+      <button role="tab" id="tab-file"  data-tab="file"  aria-selected="false" aria-controls="panel-file"  tabindex="-1">File</button>
+      <button role="tab" id="tab-drive" data-tab="drive" aria-selected="false" aria-controls="panel-drive" tabindex="-1">Google Drive</button>
+    </nav>
+
+    <!-- TEXT -->
+    <section class="card panel" id="panel-text" role="tabpanel" aria-labelledby="tab-text" data-panel="text">
+      <label for="text-input">Your text, or encrypted text to unlock</label>
+      <textarea id="text-input" rows="6" spellcheck="false"></textarea>
+      <div class="actions">
+        <button type="button" id="text-encrypt">Encrypt text</button>
+        <button type="button" id="text-decrypt" class="secondary">Decrypt text</button>
+      </div>
+      <label for="text-output">Result</label>
+      <textarea id="text-output" rows="6" readonly spellcheck="false"></textarea>
+      <div class="actions">
+        <button type="button" id="text-copy" class="ghost">Copy result</button>
+      </div>
+      <p id="text-status" class="status" role="status"></p>
+    </section>
+
+    <!-- FILE -->
+    <section class="card panel" id="panel-file" role="tabpanel" aria-labelledby="tab-file" data-panel="file" hidden>
+      <label for="file-input" class="drop" id="file-drop">
+        <span id="file-name">Choose a file, or drop it here</span>
+        <span class="drop-hint">Any type. Encrypted files end in .zvlt</span>
+      </label>
+      <input id="file-input" type="file" class="visually-hidden">
+      <div class="actions">
+        <button type="button" id="file-encrypt">Encrypt and download</button>
+        <button type="button" id="file-decrypt" class="secondary">Decrypt and download</button>
+      </div>
+      <p id="file-status" class="status" role="status"></p>
+    </section>
+
+    <!-- GOOGLE DRIVE -->
+    <section class="card panel" id="panel-drive" role="tabpanel" aria-labelledby="tab-drive" data-panel="drive" hidden>
+      <p id="drive-setup-note" class="note" hidden></p>
+      <div class="actions">
+        <button type="button" id="drive-connect">Connect Google Drive</button>
+        <button type="button" id="drive-disconnect" class="ghost" hidden>Disconnect</button>
+      </div>
+
+      <div id="drive-tools" hidden>
+        <label for="drive-file-input">File to encrypt and upload</label>
+        <input id="drive-file-input" type="file">
+        <div class="actions">
+          <button type="button" id="drive-upload">Encrypt and upload</button>
+          <button type="button" id="drive-refresh" class="ghost">Refresh list</button>
+        </div>
+        <h3>Files uploaded with ZeroVault</h3>
+        <ul id="drive-list" class="remote-list"></ul>
+      </div>
+      <p id="drive-status" class="status" role="status"></p>
+    </section>
+
+    <progress id="progress" max="1" value="0" hidden></progress>
+
+    <!-- What the encrypted output looks like (filled in after every encryption) -->
+    <section class="card" id="anatomy" hidden aria-labelledby="anatomy-title">
+      <h2 id="anatomy-title">Inside your encrypted file</h2>
+      <div id="anatomy-bar" class="anatomy-bar" aria-hidden="true"></div>
+      <dl id="anatomy-facts" class="facts"></dl>
+    </section>
+
+    <footer class="foot">
+      <p>Open source (MIT). Not independently audited, so don't use it as your only protection for life-critical secrets. Details in the README.</p>
+    </footer>
+  </main>
+</body>
+</html>
