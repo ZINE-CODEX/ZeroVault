@@ -13,7 +13,8 @@ Encrypt text and files with a password, entirely in your browser, and optionally
 - **Google Drive integration.** Encrypt and upload, then download and decrypt, using the narrow `drive.file` permission (the app can only see files it created).
 - **Password helpers.** Strength meter and a secure random password generator.
 - **Pluggable storage.** Cloud services sit behind a small interface, so adding Mega, Dropbox or OneDrive means writing one file.
-- **Zero runtime dependencies.** Plain HTML, CSS and ES modules. Nothing to install to run it.
+- **Zero runtime dependencies.** Plain HTML, CSS and ES modules. Nothing is downloaded to run it, and Google's sign-in script is only fetched if you open the Drive tab.
+- **Verifiable.** A `SHA256SUMS` file lets you check that your copy of the code is unmodified.
 
 ## Quick start
 
@@ -22,11 +23,12 @@ You need Node.js 20+ (for the tests and the local server) and a modern browser.
 ```bash
 git clone <this-repo-url>
 cd zerovault
-npm test        # runs the crypto test suite (no install step needed)
+npm test        # runs the test suite (no install step needed)
+npm run verify  # checks your files against SHA256SUMS
 npm start       # serves the app at http://localhost:8080
 ```
 
-`npm start` is just a static file server. Any other works too, for example `python3 -m http.server 8080`. The app must be served from `localhost` or `https://` because the Web Crypto API only works in a secure context. Opening `index.html` directly from disk will not work.
+`npm start` runs a tiny built-in server (`scripts/serve.js`) that uses only Node's standard library, so nothing is downloaded. It listens on `127.0.0.1` only. Any static server works too, for example `python3 -m http.server 8080`. The app must be served from `localhost` or `https://` because the Web Crypto API only works in a secure context, so opening `index.html` directly from disk will not work.
 
 ## How it works
 
@@ -49,6 +51,20 @@ npm start       # serves the app at http://localhost:8080
 | **Built-in Web Crypto, no libraries** | No third-party crypto code to trust, update or audit. |
 | **Content Security Policy** | The page can only talk to itself and Google, so an injected script couldn't send your data elsewhere. |
 
+## Trust model: where does the JavaScript come from?
+
+Browser-based encryption has one well-known catch: **whoever serves the JavaScript could serve a modified copy** (for example one that sends your password somewhere). Encryption that runs in your tab is only as trustworthy as the code your tab was given.
+
+ZeroVault deals with this in the following ways:
+
+- **It is not hosted anywhere.** The recommended way to use it is to clone the repo and run it locally, so the code you read is the code that runs. There is no build step and no bundled third-party code.
+- **You can verify your copy.** `npm run verify` compares every file the browser loads against `SHA256SUMS`. Compare that file against the one in a release you trust. (`src/config.js` is excluded because you edit it with your own Google client ID.)
+- **No third-party code on the password page by default.** Google's sign-in script is loaded only after you open the Drive tab, and only if you configured a client ID.
+- **A strict Content Security Policy** limits which origins the page may load code from or send data to.
+- **If you host it yourself,** use HTTPS, pin it to a tagged release, publish the checksums with the release, and don't load anything from a CDN.
+
+What this does *not* solve: if you use a copy hosted by someone else, you are trusting them. That limitation applies to every web-based encryption tool, which is why running it locally is the stronger option.
+
 ## What it protects against (and what it doesn't)
 
 **Protects against**
@@ -70,6 +86,10 @@ npm start       # serves the app at http://localhost:8080
 ```
 zerovault/
 ├── index.html               Page markup + Content Security Policy
+├── SHA256SUMS               Fingerprints of every file the browser loads
+├── scripts/
+│   ├── serve.js             Zero-dependency local server (127.0.0.1 only)
+│   └── manifest.js          Writes / verifies SHA256SUMS
 ├── src/
 │   ├── config.js            Your Google OAuth client ID goes here
 │   ├── styles.css
@@ -158,6 +178,7 @@ upload(name, blob)  list()  download(file)  remove(file)
 
 ### 6. Google Drive (`cloud/googleDrive.js`)
 
+- **Loading:** Google's sign-in script is not in `index.html`. `loadGoogleScript()` adds it to the page only after you open the Drive tab (and only if a client ID is set), so no third-party code runs next to the password box otherwise.
 - **Sign-in:** Google Identity Services opens a consent popup and hands back a short-lived access token (about one hour). No backend and no client secret are involved. The token lives in memory only, so closing the tab signs you out.
 - **Scope:** `drive.file`, which lets the app see only files it created.
 - **Upload:** a single multipart request carrying the file name (JSON) and the encrypted bytes.
@@ -206,8 +227,9 @@ The suite uses Node's built-in test runner (no installs). It covers:
 - Header edits, chunk reordering and **truncation at a chunk boundary** are detected.
 - Non-ZeroVault input gives a clear `FormatError`, and an absurd iteration count in a header is refused.
 - Password strength scoring and generator output.
+- `SHA256SUMS` matches the files on disk, so the checksum list can't go stale.
 
-Tests use a low iteration count (1,000) for speed. The app itself always uses 600,000.
+Tests use a low iteration count (1,000) for speed. The app itself always uses 600,000. After changing any app file, run `npm run manifest` to refresh `SHA256SUMS`.
 
 ## Limitations and roadmap
 

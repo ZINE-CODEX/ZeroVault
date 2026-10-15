@@ -144,6 +144,8 @@ function selectTab(name) {
     tab.tabIndex = active ? 0 : -1;
   }
   document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== name; });
+  // Google's script is only fetched once the user actually opens the Drive tab.
+  if (name === 'drive') drive.prepare().catch(() => {}); // errors are shown on Connect
 }
 tabs.forEach((tab) => tab.addEventListener('click', () => selectTab(tab.dataset.tab)));
 // Arrow-key navigation between tabs (standard accessible tab behaviour)

@@ -2,7 +2,10 @@
  * googleDrive.js  -  Google Drive backend (implements CloudProvider)
  * ------------------------------------------------------------------
  * HOW SIGN-IN WORKS
- *   We use Google Identity Services (the <script> tag in index.html).
+ *   We use Google Identity Services. Its script is NOT part of the page: it is
+ *   loaded on demand (see loadGoogleScript below), only after the user opens
+ *   the Drive tab and only if a client ID is configured. Until then, no
+ *   third-party code runs on the same page as the password box.
  *   `initTokenClient` + `requestAccessToken` opens Google's consent popup
  *   and returns a short-lived ACCESS TOKEN (about 1 hour) straight to the
  *   browser. There is no backend server, no client secret, and the token
@@ -22,6 +25,32 @@ import { GOOGLE_CLIENT_ID } from '../config.js';
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
+const GIS_SRC = 'https://accounts.google.com/gsi/client';
+
+let gisPromise = null;
+
+/**
+ * Add Google's sign-in script to the page, once. Returns a promise that
+ * resolves when it has loaded. The Content Security Policy in index.html
+ * allows exactly this one external script origin.
+ */
+function loadGoogleScript() {
+  if (globalThis.google?.accounts?.oauth2) return Promise.resolve();
+  if (!gisPromise) {
+    gisPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = GIS_SRC;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => {
+        gisPromise = null; // allow a retry
+        reject(new Error('Google sign-in script failed to load. Check your internet connection or ad blocker.'));
+      };
+      document.head.append(script);
+    });
+  }
+  return gisPromise;
+}
 
 export class GoogleDriveProvider {
   id = 'gdrive';
@@ -39,18 +68,24 @@ export class GoogleDriveProvider {
     return this.#token !== null;
   }
 
+  /**
+   * Start loading Google's script ahead of time (called when the Drive tab
+   * opens) so the sign-in popup can open instantly on click. Does nothing
+   * if Drive isn't configured.
+   */
+  prepare() {
+    return this.isConfigured() ? loadGoogleScript() : Promise.resolve();
+  }
+
   /** Opens the Google consent popup. Resolves once we hold a token. */
-  connect() {
+  async connect() {
+    if (!this.isConfigured()) {
+      throw new Error('Google Drive is not configured. Set GOOGLE_CLIENT_ID in src/config.js.');
+    }
+    await loadGoogleScript();
+    const gis = globalThis.google.accounts.oauth2;
+
     return new Promise((resolve, reject) => {
-      if (!this.isConfigured()) {
-        reject(new Error('Google Drive is not configured. Set GOOGLE_CLIENT_ID in src/config.js.'));
-        return;
-      }
-      const gis = globalThis.google?.accounts?.oauth2;
-      if (!gis) {
-        reject(new Error('Google sign-in script failed to load. Check your internet connection or ad blocker.'));
-        return;
-      }
 
       this.#tokenClient = gis.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,

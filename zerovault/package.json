@@ -6,7 +6,9 @@
   "private": true,
   "scripts": {
     "test": "node --test",
-    "start": "npx --yes serve -l 8080 ."
+    "start": "node scripts/serve.js",
+    "manifest": "node scripts/manifest.js",
+    "verify": "node scripts/manifest.js --verify"
   },
   "engines": {
     "node": ">=20"
